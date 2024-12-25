@@ -1,4 +1,5 @@
 import flet as ft
+
 from Components.ComponentMapping import ComponentMapping
 from Components.LeftNavigationMenu import LeftNavigationMenu
 
@@ -11,6 +12,7 @@ class MainPageView(ft.Row):
         self.leftNavigation = LeftNavigationMenu(mainPageData)
         self.rightPage = ComponentMapping()
 
+
         # Container for left navigation
         self.leftNavigationContainer = ft.Container(
             content=self.leftNavigation,
@@ -18,11 +20,11 @@ class MainPageView(ft.Row):
             alignment=ft.alignment.top_left,  # Align content to the top-left
         )
 
+
         # Right page container
-        self.rightPageContainer = ft.Container(
-            content=self.rightPage.getComponent("dashboard"),
-            padding=10,  # Add some padding inside the border
-            alignment=ft.alignment.top_left,  # Align content to the top-left
+        self.default_group_name = "dashboard"
+        self.rightPageContainer = ft.Column(
+            controls=[self.rightPage.getTitle(self.default_group_name),self.rightPage.getButton(self.default_group_name),self.rightPage.getComponent(self.default_group_name)],
         )
 
         # Setting controls and alignment
@@ -51,7 +53,7 @@ class MainPageView(ft.Row):
         return fullScreenData
 
     def display_controls_grid(self, control_group_name):
-        self.rightPageContainer.content = self.rightPage.getComponent(control_group_name)
+        self.rightPageContainer.controls = [self.rightPage.getTitle(control_group_name),self.rightPage.getButton(control_group_name),self.rightPage.getComponent(control_group_name)]
         self.controls = self.getFullScreenData()
         self.page.update()
 
