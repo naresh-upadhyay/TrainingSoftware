@@ -1,7 +1,8 @@
 import flet as ft
 import datetime
-from Components.FormField import FormField
 
+from Components.FormDataManager import FormDataManager
+from Components.FormField import FormField
 
 class AddDataPopUp:
     def __init__(self, tabs_data):
@@ -13,8 +14,7 @@ class AddDataPopUp:
         self.border_radius = 8
 
         self.tabs_data = tabs_data
-
-        self.form_data = {}
+        self.form_manager = FormDataManager()
         self.dlg_modal = self._create_dialog()
 
     def _create_dialog(self):
@@ -54,17 +54,20 @@ class AddDataPopUp:
                     mandatory=field["mandatory"],
                     callback=self.open_date_picker,
                 )
-                self.form_data[field["key"]] = {
-                    "field": form_field.get(),
-                    "mandatory": field["mandatory"],
-                    "label": field["label"],
-                }
+                self.form_manager.register_field(
+                    field["key"],
+                    form_field.get(),
+                    field["mandatory"],
+                    field["label"],
+                )
                 tab_fields.append(form_field.get())
 
             tabs.append(
                 ft.Tab(
                     text=tab_data["tabTitle"],
-                    content=ft.Container(ft.Column(tab_fields, spacing=10), margin=ft.Margin(0,10,0,0)),
+                    content=ft.Container(
+                        ft.Column(tab_fields, spacing=10), margin=ft.Margin(0, 10, 0, 0)
+                    ),
                 )
             )
 
@@ -86,38 +89,15 @@ class AddDataPopUp:
         e.page.update()
 
     def save_form_data(self, e):
-        errors = []
-        for key, field_data in self.form_data.items():
-            field = field_data["field"]
-            mandatory = field_data["mandatory"]
-            label = field_data["label"]
-
-            value = None
-            if isinstance(field, ft.TextField):
-                value = field.value
-            elif isinstance(field, ft.Checkbox):
-                value = field.value
-            elif isinstance(field, ft.Column):  # Date field
-                value = field.controls[1].value
-
-            if mandatory and not value:
-                errors.append(f"Field '{label}' is mandatory.")
-
+        errors = self.form_manager.validate()
         if errors:
             print("Validation errors:")
             for error in errors:
                 print(error)
         else:
+            form_values = self.form_manager.get_form_values()
             print("Form submitted successfully:")
-            for key, field_data in self.form_data.items():
-                field = field_data["field"]
-                value = None
-                if isinstance(field, ft.TextField):
-                    value = field.value
-                elif isinstance(field, ft.Checkbox):
-                    value = field.value
-                elif isinstance(field, ft.Column):
-                    value = field.controls[1].value
+            for key, value in form_values.items():
                 print(f"{key}: {value}")
 
         self.close_dialog(e)
@@ -125,18 +105,16 @@ class AddDataPopUp:
     def open_date_picker(self, key, e):
         def handle_date_change(date_event):
             selected_date = date_event.control.value
-            field = self.form_data[key]["field"]
+            field = self.form_manager.form_data[key]["field"]
             field.controls[1].value = selected_date
             e.page.update()
 
-        # Create and open the DatePicker immediately
         date_picker = ft.DatePicker(
             first_date=datetime.date(1900, 1, 1),
             last_date=datetime.date(2100, 12, 31),
             on_change=handle_date_change,
         )
 
-        # Add DatePicker to the page and open it
         e.page.dialog = date_picker
         date_picker.open = True
-        e.page.update()  # Force page update to render the DatePicker instantly
+        e.page.update()
