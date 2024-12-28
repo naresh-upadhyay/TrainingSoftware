@@ -1,3 +1,5 @@
+import json
+
 import flet as ft
 
 
@@ -15,16 +17,12 @@ class TableView(ft.Column):
             heading_row_height=30,
             column_spacing=80,
             rows_per_page=20,
+            json_data=None,
             **kwargs
     ):
         super().__init__(**kwargs)
 
-        # Table data and structure
-        self.header = {"id": 'ID', "name": "Name", "age": "Age", "action": "Action"}
-        self.data = [
-            {"id": i, "name": f"User {i}", "age": 20 + (i % 10)}
-            for i in range(1, 101)
-        ]
+        self.header = None
         self.current_page = 1
         self.selected_rows = set()
         self.select_all = False
@@ -41,6 +39,17 @@ class TableView(ft.Column):
         self.column_spacing = column_spacing
         self.rows_per_page = rows_per_page
         self.heading_row_height = heading_row_height
+        if json_data:
+            self.load_from_json(json_data)
+
+    def load_from_json(self, json_data):
+        """Load table headers and data from JSON."""
+        try:
+            data = json.loads(json_data)
+            self.header = data.get("header", {})
+            self.data = data.get("data", [])
+        except json.JSONDecodeError as e:
+            print(f"Error decoding JSON: {e}")
 
     def build(self):
         """Build the Flet UI and return the root control."""

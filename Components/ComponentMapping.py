@@ -1,5 +1,4 @@
 import flet as ft
-from flet.core import page
 
 from Components.AddDataPopUp import AddDataPopUp
 from Components.TableView import TableView
@@ -7,8 +6,26 @@ from Components.TableView import TableView
 
 class ComponentMapping:
     def __init__(self):
+        json_data = '''
+            {
+                "header": {
+                    "id": "ID",
+                    "name": "Name",
+                    "age": "Age",
+                    "action": "Action"
+                },
+                "data": [
+                    {"id": 1, "name": "Alice", "age": 25},
+                    {"id": 2, "name": "Bob", "age": 30},
+                    {"id": 3, "name": "Charlie", "age": 35}
+                ]
+            }
+            '''
+
+        table_view = TableView(json_data=json_data)
+
         self.components = {
-            "dashboard": TableView(),
+            "dashboard": table_view,
             "candidates": ft.Text("king upadhyay"),
         }
         self.title_font_size = 20
@@ -41,6 +58,15 @@ class ComponentMapping:
                     {"key": "password", "label": "Password", "type": "password", "mandatory": True},
                     {"key": "confirmPassword", "label": "Confirm Password", "type": "password", "mandatory": True},
                     {"key": "notifications", "label": "Receive Notifications", "type": "checkbox", "mandatory": False},
+                ],
+            },
+            {
+                "tabTitle": "Account Settings 2",
+                "inputFields": [
+                    {"key": "username2", "label": "Username", "type": "text", "mandatory": True},
+                    {"key": "password2", "label": "Password", "type": "password", "mandatory": True},
+                    {"key": "confirmPassword2", "label": "Confirm Password", "type": "password", "mandatory": True},
+                    {"key": "notifications2", "label": "Receive Notifications", "type": "checkbox", "mandatory": False},
                 ],
             },
         ]
