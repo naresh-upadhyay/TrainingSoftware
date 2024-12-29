@@ -1,179 +1,166 @@
-import flet as ft
+from bson.objectid import ObjectId
+from DB.connect import MongoDBConnectionManager
 
 
-class DataTableApp(ft.UserControl):
-    def __init__(self):
-        super().__init__()
-        self.data = [
-            {"id": i, "name": f"User {i}", "age": 20 + (i % 10)}
-            for i in range(1, 101)
-        ]
-        self.rows_per_page = 10
-        self.current_page = 1
-        self.selected_rows = set()
-        self.select_all = False
+class TableDataCRUD:
+    def __init__(self, db_name, collection_name):
+        # Initialize MongoDB connection
+        self.client = MongoDBConnectionManager(database_name=db_name) # Adjust the URI if necessary
+        self.client.connect()
+        self.db = self.client.db
+        self.collection = self.db[collection_name]
 
-    def build(self):
-        """Build the Flet UI and return the root control."""
-        # Create the "Select All" checkbox in the header
-        select_all_checkbox = ft.Checkbox(
-            label="Select All",
-            value=self.select_all,
-            on_change=self.select_all_changed,
-        )
+    def create(self, data):
+        """Create a new document in the collection."""
+        try:
+            result = self.collection.insert_one(data)
+            return str(result.inserted_id)
+        except Exception as e:
+            return f"An error occurred: {e}"
 
-        # Create the DataTable with columns
-        self.data_table = ft.DataTable(
-            columns=[
-                ft.DataColumn(select_all_checkbox),
-                ft.DataColumn(ft.Text("ID")),
-                ft.DataColumn(ft.Text("Name")),
-                ft.DataColumn(ft.Text("Age")),
-                ft.DataColumn(ft.Text("Actions")),
-            ],
-            rows=self.get_table_rows(),  # Set the initial rows
-            #width=500  # Adjust the width if necessary
-        )
+    def read(self, query=None):
+        """Read documents from the collection based on the query."""
+        try:
+            if query is None:
+                return list(self.collection.find())
+            else:
+                return list(self.collection.find(query))
+        except Exception as e:
+            return f"An error occurred: {e}"
 
-        # Create a Scrollable container for the DataTable
-        scrollable_table = ft.Column(
-            controls=[self.data_table],
-            height=300,  # Set a fixed height for scrolling
-            scroll=True,  # Enable scrolling
-        )
-
-        # Pagination controls
-        pagination_controls = ft.Row(
-            controls=[
-                ft.ElevatedButton("Previous", on_click=self.go_to_previous_page),
-                ft.Text(f"Page {self.current_page} of {self.total_pages()}", size=16),
-                ft.ElevatedButton("Next", on_click=self.go_to_next_page),
-                ft.ElevatedButton("Delete Selected", on_click=self.delete_selected_rows),
-                # Button to delete selected rows
-            ],
-            alignment=ft.MainAxisAlignment.CENTER,
-        )
-
-        # Return the container with the scrollable table and pagination controls
-        return ft.Column(
-            controls=[scrollable_table, pagination_controls],
-            spacing=10,
-        )
-
-    def get_table_rows(self):
-        """Generate the rows for the table."""
-        rows = []
-        start = (self.current_page - 1) * self.rows_per_page
-        end = start + self.rows_per_page
-        for row in self.data[start:end]:
-            rows.append(
-                ft.DataRow(
-                    cells=[
-                        ft.DataCell(
-                            ft.Checkbox(
-                                on_change=self.checkbox_changed,
-                                value=row["id"] in self.selected_rows,
-                            )
-                        ),
-                        ft.DataCell(ft.Text(str(row["id"]))),
-                        ft.DataCell(ft.Text(row["name"])),
-                        ft.DataCell(ft.Text(str(row["age"]))),
-                        ft.DataCell(
-                            ft.Row(
-                                controls=[
-                                    ft.IconButton(icon=ft.icons.EDIT, on_click=lambda e, row=row: self.edit_row(row)),
-                                    ft.IconButton(icon=ft.icons.DELETE,
-                                                  on_click=lambda e, row=row: self.delete_row(row)),
-                                ],
-                                spacing=10,
-                            )
-                        ),
-                    ]
-                )
+    def update(self, record_id, updated_data):
+        """Update an existing document by its _id."""
+        try:
+            result = self.collection.update_one(
+                {"_id": ObjectId(record_id)}, {"$set": updated_data}
             )
-        return rows
+            if result.matched_count > 0:
+                return "Document updated successfully."
+            else:
+                return "No document found with the given ID."
+        except Exception as e:
+            return f"An error occurred: {e}"
 
-    def checkbox_changed(self, e):
-        """Handle individual checkbox state change."""
-        row_id = e.control.value
-        if row_id in self.selected_rows:
-            self.selected_rows.remove(row_id)
-        else:
-            self.selected_rows.add(row_id)
+    def delete(self, record_id):
+        """Delete a document by its _id."""
+        try:
+            result = self.collection.delete_one({"_id": ObjectId(record_id)})
+            if result.deleted_count > 0:
+                return "Document deleted successfully."
+            else:
+                return "No document found with the given ID."
+        except Exception as e:
+            return f"An error occurred: {e}"
 
-        # Update the "Select All" checkbox state
-        if len(self.selected_rows) == len(self.get_rows_for_page()):
-            self.select_all = True
-        else:
-            self.select_all = False
+# Example Usage
+if __name__ == "__main__":
+    db_name = "sample_analytics1"
+    collection_name = "customers1"
+    crud = TableDataCRUD(db_name, collection_name)
 
-        # If no rows are selected, uncheck the "Select All" checkbox
-        if not self.selected_rows:
-            self.select_all = False
+    # Create a new document
+    new_data = {"name": "John Doe", "age": 30, "email": "john.doe@example.com"}
+    document_id = crud.create(new_data)
+    print(f"Created document with ID: {document_id}")
 
-        self.update_table()
+    # Read all documents
+    documents = crud.read()
+    print("All documents:", documents)
 
-    def select_all_changed(self, e):
-        """Handle "Select All" checkbox state change."""
-        self.select_all = e.control.value
-        if self.select_all:
-            self.selected_rows = set(row["id"] for row in self.get_rows_for_page())
-        else:
-            self.selected_rows = set()
+    # Update a document
+    updated_data = {"age": 31}
+    update_result = crud.update(document_id, updated_data)
+    print(update_result)
 
-        self.update_table()
+    # Delete a document
+    delete_result = crud.delete(document_id)
+    print(delete_result)
 
-    def edit_row(self, row):
-        print(f"Edit: {row}")
 
-    def delete_row(self, row):
-        """Delete a single row."""
-        self.data = [r for r in self.data if r["id"] != row["id"]]
-        self.selected_rows.discard(row["id"])  # Remove from selection if deleted
-        self.update_table()
-        self.adjust_page_after_deletion()
+'''
+from bson.objectid import ObjectId
+from DB.connect import MongoDBConnectionManager
 
-    def delete_selected_rows(self, e):
-        """Delete all selected rows."""
-        self.data = [r for r in self.data if r["id"] not in self.selected_rows]
-        self.selected_rows.clear()  # Clear selected rows after deletion
-        self.select_all = False  # Uncheck "Select All" when all selected rows are deleted
-        self.update_table()
-        self.adjust_page_after_deletion()
 
-    def adjust_page_after_deletion(self):
-        """Adjust page and re-calculate total pages after deletion."""
-        total_pages = self.total_pages()
+class DataCRUD:
+    def __init__(self, db_name, collection_name):
+        """Initialize MongoDB connection."""
+        self.client = MongoDBConnectionManager(database_name=db_name)
+        self.client.connect()
+        self.db = self.client.db
+        self.collection = self.db[collection_name]
 
-        # If current page exceeds total pages, go to the last page
-        if self.current_page > total_pages:
-            self.current_page = total_pages
+    def create(self, data):
+        """Create a new document in the collection."""
+        try:
+            result = self.collection.insert_one(data)
+            return str(result.inserted_id)
+        except Exception as e:
+            return f"An error occurred: {e}"
 
-        self.update_table()
+    def read(self, query=None):
+        """Read documents from the collection based on the query."""
+        try:
+            if query is None:
+                return list(self.collection.find())  # Retrieve all documents
+            else:
+                return list(self.collection.find(query))  # Retrieve documents based on query
+        except Exception as e:
+            return f"An error occurred: {e}"
 
-    def go_to_previous_page(self, e):
-        """Handle page change to the previous page."""
-        if self.current_page > 1:
-            self.current_page -= 1
-            self.update_table()
+    def update(self, query, updated_data):
+        """Update documents in the collection based on the query."""
+        try:
+            result = self.collection.update_many(query, {"$set": updated_data})
+            if result.matched_count > 0:
+                return f"{result.matched_count} document(s) updated successfully."
+            else:
+                return "No documents matched the query to update."
+        except Exception as e:
+            return f"An error occurred: {e}"
 
-    def go_to_next_page(self, e):
-        """Handle page change to the next page."""
-        if self.current_page < self.total_pages():
-            self.current_page += 1
-            self.update_table()
+    def delete(self, query):
+        """Delete documents from the collection based on the query."""
+        try:
+            result = self.collection.delete_many(query)
+            if result.deleted_count > 0:
+                return f"{result.deleted_count} document(s) deleted successfully."
+            else:
+                return "No documents matched the query to delete."
+        except Exception as e:
+            return f"An error occurred: {e}"
 
-    def total_pages(self):
-        """Calculate the total number of pages based on data size."""
-        return (len(self.data) + self.rows_per_page - 1) // self.rows_per_page
 
-    def get_rows_for_page(self):
-        """Get rows for the current page."""
-        start = (self.current_page - 1) * self.rows_per_page
-        end = start + self.rows_per_page
-        return self.data[start:end]
+# Example Usage
+if __name__ == "__main__":
+    db_name = "sample_analytics1"
+    collection_name = "customers1"
+    crud = DataCRUD(db_name, collection_name)
 
-    def update_table(self):
-        """Update the rows after actions like delete or checkbox change."""
-        self.data_table.rows = self.get_table_rows()
-        self.update()
+    # Create a new document
+    new_data = {"name": "John Doe", "age": 30, "email": "john.doe@example.com"}
+    document_id = crud.create(new_data)
+    print(f"Created document with ID: {document_id}")
+
+    # Read all documents
+    documents = crud.read()
+    print("All documents:", documents)
+
+    # Read documents by query
+    query = {"name": "John Doe"}
+    documents = crud.read(query)
+    print("Documents by name:", documents)
+
+    # Update documents by query
+    update_query = {"name": "John Doe"}
+    updated_data = {"age": 31}
+    update_result = crud.update(update_query, updated_data)
+    print(update_result)
+
+    # Delete documents by query
+    delete_query = {"name": "John Doe"}
+    delete_result = crud.delete(delete_query)
+    print(delete_result)
+
+
+'''

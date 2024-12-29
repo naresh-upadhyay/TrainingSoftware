@@ -109,12 +109,15 @@ class AddDataPopUp:
             field.controls[1].value = selected_date
             e.page.update()
 
-        date_picker = ft.DatePicker(
-            first_date=datetime.date(1900, 1, 1),
-            last_date=datetime.date(2100, 12, 31),
-            on_change=handle_date_change,
-        )
+        # Create a new DatePicker instance or reuse an existing one
+        if not hasattr(self, "date_picker"):
+            self.date_picker = ft.DatePicker(
+                first_date=datetime.date(1900, 1, 1),
+                last_date=datetime.date(2100, 12, 31),
+                on_change=handle_date_change,
+            )
 
-        e.page.dialog = date_picker
-        date_picker.open = True
+        # Ensure the DatePicker is bound to the page's dialog
+        e.page.dialog = self.date_picker
+        self.date_picker.open = True
         e.page.update()

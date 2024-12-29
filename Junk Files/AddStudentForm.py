@@ -1,7 +1,11 @@
+import os
+from dotenv import load_dotenv
 from DB.connect import MongoDBConnectionManager, MongoDBCollection
 
 # Define database and collection names
-DATABASE_NAME = "sample_analytics"
+
+load_dotenv()
+DATABASE_NAME = os.getenv("DATABASE_NAME")
 COLLECTION_NAME = "customers"
 
 # Initialize MongoDB connection
