@@ -106,8 +106,10 @@ class TableView(ft.Column):
         # Update the "Select All" checkbox state
         if len(self.selected_rows) == len(self.get_rows_for_page()):
             self.select_all = True
-        else:
+        elif len(self.get_rows_for_page()) == 0:
             self.select_all = False
+        else:
+            self.select_all = None
 
         # If no rows are selected, uncheck the "Select All" checkbox
         if not self.selected_rows:
@@ -122,6 +124,7 @@ class TableView(ft.Column):
             self.selected_rows = set(row["id"] for row in self.get_rows_for_page())
         else:
             self.selected_rows = set()
+            self.select_all=False
 
         self.update_table()
 
