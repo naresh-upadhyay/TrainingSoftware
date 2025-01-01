@@ -7,23 +7,88 @@ from DB.DataCRUD import DataCRUD
 
 class ComponentMapping:
     def __init__(self):
-        json_data = '''
-            {
-                "header": {
-                    "id": "ID",
-                    "name": "Name",
-                    "age": "Age",
-                    "action": "Action"
-                },
-                "data": [
-                    {"id": 1, "name": "Alice", "age": 25},
-                    {"id": 2, "name": "Bob", "age": 30},
-                    {"id": 3, "name": "Charlie", "age": 35}
-                ]
-            }
-            '''
 
-        table_view = TableView(json_data=json_data)
+        self.table_header = {
+            "columns": [
+                {
+                    "field_name": "select",
+                    "header_name": "",
+                    "visible": True,
+                    "searchable": False,
+                    "sortable": False,
+                    "alignment": "center",
+                    "tooltip": "Select row",
+                    "field_type": "checkbox",
+                    "config": {
+                        "checkbox_column": True,
+                        "actions": []
+                    }
+                },
+                {
+                    "field_name": "_id",
+                    "header_name": "ID",
+                    "visible": True,
+                    "searchable": False,
+                    "sortable": True,
+                    "alignment": "center",
+                    "tooltip": "Unique identifier",
+                    "field_type": "text",
+                    "config": {
+                        "format": None,
+                        "actions": []
+                    }
+                },
+                {
+                    "field_name": "name",
+                    "header_name": "Name",
+                    "visible": True,
+                    "searchable": True,
+                    "sortable": True,
+                    "alignment": "left",
+                    "tooltip": "Full name of the user",
+                    "field_type": "text",
+                    "config": {
+                        "format": None,
+                        "actions": []
+                    }
+                },
+                {
+                    "field_name": "actions",
+                    "header_name": "Actions",
+                    "visible": True,
+                    "searchable": False,
+                    "sortable": False,
+                    "alignment": "center",
+                    "tooltip": "Actions for the row",
+                    "field_type": "actions",
+                    "config": {
+                        "actions": [
+                            {
+                                "type": "button",
+                                "label": "Edit",
+                                "icon": "edit",
+                                "callback": "edit_row"
+                            },
+                            {
+                                "type": "button",
+                                "label": "Delete",
+                                "icon": "delete",
+                                "callback": "delete_row"
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+
+        self.sample_data = [
+            {"_id": "1", "name": "Alice", "selected": False},
+            {"_id": "2", "name": "Bob", "selected": False},
+            {"_id": "3", "name": "Charlie", "selected": False},
+        ]
+
+
+        table_view = TableView(header=self.table_header, data=self.sample_data)
 
         self.components = {
             "dashboard": table_view,

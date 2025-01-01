@@ -1,11 +1,11 @@
-import json
-
 import flet as ft
 
 
 class TableView(ft.Column):
     def __init__(
             self,
+            header,
+            data,
             row_font_size=12,
             header_font_size=15,
             action_icon_size=16,
@@ -17,14 +17,14 @@ class TableView(ft.Column):
             heading_row_height=30,
             column_spacing=80,
             rows_per_page=20,
-            json_data=None,
             **kwargs
     ):
         super().__init__(**kwargs)
 
-        self.header = None
+        self.table_header = header
+        self.sample_data = data
         self.current_page = 1
-        self.selected_rows = set()
+        self.selected_rows = self.get_selected_rows()
         self.select_all = False
 
         # Customizable Settings
@@ -39,17 +39,7 @@ class TableView(ft.Column):
         self.column_spacing = column_spacing
         self.rows_per_page = rows_per_page
         self.heading_row_height = heading_row_height
-        if json_data:
-            self.load_from_json(json_data)
 
-    def load_from_json(self, json_data):
-        """Load table headers and data from JSON."""
-        try:
-            data = json.loads(json_data)
-            self.header = data.get("header", {})
-            self.data = data.get("data", [])
-        except json.JSONDecodeError as e:
-            print(f"Error decoding JSON: {e}")
 
     def build(self):
         """Build the Flet UI and return the root control."""
@@ -88,10 +78,10 @@ class TableView(ft.Column):
         rows = []
         start = (self.current_page - 1) * self.rows_per_page
         end = start + self.rows_per_page
-        for row in self.data[start:end]:
+        for row in self.sample_data[start:end]:
             rows.append(
                 ft.DataRow(
-                    cells=self.get_data_for_row(row, self.header)
+                    cells=self.get_data_for_row(row)
                 )
             )
         return rows
@@ -121,7 +111,7 @@ class TableView(ft.Column):
         """Handle "Select All" checkbox state change."""
         self.select_all = e.control.value
         if self.select_all:
-            self.selected_rows = set(row["id"] for row in self.get_rows_for_page())
+            self.selected_rows = set(row["_id"] for row in self.get_rows_for_page())
         else:
             self.selected_rows = set()
             self.select_all=False
@@ -133,14 +123,14 @@ class TableView(ft.Column):
 
     def delete_row(self, row):
         """Delete a single row."""
-        self.data = [r for r in self.data if r["id"] != row["id"]]
-        self.selected_rows.discard(row["id"])  # Remove from selection if deleted
+        self.sample_data = [r for r in self.sample_data if r["_id"] != row["_id"]]
+        self.selected_rows.discard(row["_id"])  # Remove from selection if deleted
         self.update_table()
         self.adjust_page_after_deletion()
 
     def delete_selected_rows(self, e):
         """Delete all selected rows."""
-        self.data = [r for r in self.data if r["id"] not in self.selected_rows]
+        self.sample_data = [r for r in self.sample_data if r["_id"] not in self.selected_rows]
         self.selected_rows.clear()  # Clear selected rows after deletion
         self.select_all = False  # Uncheck "Select All" when all selected rows are deleted
         self.update_table()
@@ -170,54 +160,57 @@ class TableView(ft.Column):
 
     def total_pages(self):
         """Calculate the total number of pages based on data size."""
-        return (len(self.data) + self.rows_per_page - 1) // self.rows_per_page
+        return (len(self.sample_data) + self.rows_per_page - 1) // self.rows_per_page
 
     def get_rows_for_page(self):
         """Get rows for the current page."""
         start = (self.current_page - 1) * self.rows_per_page
         end = start + self.rows_per_page
-        return self.data[start:end]
+        return self.sample_data[start:end]
 
-    def get_data_for_row(self, row, header):
+    def get_selected_rows(self):
+        """Get selected rows."""
+        self.selected_rows = {row["_id"] for row in self.sample_data if row["selected"]}
+        return self.selected_rows
+
+
+    def get_data_for_row(self, row_data):
         """Get row data for table."""
-        row_data = []
+        cells = []
 
-        # Checkbox for selection in row
-        row_data.append(ft.DataCell(
-            ft.CupertinoCheckbox(
-                on_change=lambda e, row_id=row["id"]: self.checkbox_changed(e, row_id),
-                value=row["id"] in self.selected_rows,
-                scale=self.checkbox_scale  # Use the scale passed to the constructor
-            )
-        ))
+        for col in self.table_header["columns"]:
+            if col["visible"]:
+                if col["field_type"] == "checkbox":
+                    row_checkbox = ft.CupertinoCheckbox(
+                        on_change=lambda e, row_id=row_data["_id"]: self.checkbox_changed(e, row_id),
+                        value=row_data["_id"] in self.selected_rows,
+                        scale=self.checkbox_scale
+                    )
+                    cells.append(ft.DataCell(row_checkbox))
+                elif col["field_type"] == "actions":
+                    actions = col["config"]["actions"]
+                    action_buttons = [
+                        ft.IconButton(
+                            icon_size=self.action_icon_size,
+                            icon=action["icon"],
+                            on_click=lambda e, a=action, data=row_data: self.perform_action(a, data),
+                        )
+                        for action in actions
+                    ]
+                    cells.append(ft.DataCell(ft.Row(controls=action_buttons, spacing=self.row_spacing)))
+                else:
+                    cell_text = ft.Text(row_data.get(col["field_name"], ""))
+                    cells.append(ft.DataCell(cell_text))
 
-        # Other cells (ID, Name, Age) with reduced padding
-        for key in header.keys():
-            if key != "id" and key != "action":
-                row_data.append(ft.DataCell(
-                    ft.Text(str(row[key]), size=self.row_font_size),
-                ))
+        return cells
 
-        # Action buttons (Edit, Delete)
-        row_data.append(ft.DataCell(
-            ft.Row(
-                controls=[
-                    ft.IconButton(
-                        icon=ft.icons.EDIT,
-                        on_click=lambda e, row=row: self.edit_row(row),
-                        icon_size=self.action_icon_size  # Use the action icon size passed
-                    ),
-                    ft.IconButton(
-                        icon=ft.icons.DELETE,
-                        on_click=lambda e, row=row: self.delete_row(row),
-                        icon_size=self.action_icon_size  # Use the action icon size passed
-                    ),
-                ],
-                spacing=self.row_spacing,  # Use the row spacing passed
-            )
-        ))
+    def toggle_row_selection(self, row_data, is_selected):
+        # Update the selection state for a specific row
+        row_data["selected"] = is_selected
 
-        return row_data
+    def perform_action(self, action, row_data):
+        # Perform an action based on the callback
+        print(f"Performing {action['label']} on row: {row_data}")
 
     def get_bottom_buttons(self):
         """Generate pagination controls."""
@@ -229,27 +222,6 @@ class TableView(ft.Column):
         ]
         return bottom_buttons
 
-    def get_table_columns(self):
-        """Generate columns for the table."""
-        columns = []
-
-        # "Select All" checkbox in the header
-        select_all_checkbox = ft.CupertinoCheckbox(
-            value=self.select_all,
-            on_change=self.select_all_changed,
-            scale=self.checkbox_scale,  # Use the scale passed to the constructor
-            tristate = True
-        )
-        columns.append(ft.DataColumn(select_all_checkbox))
-
-        # Other columns (ID, Name, Age) without row_spacing
-        for key in self.header.keys():
-            if key != "id":
-                columns.append(ft.DataColumn(
-                    ft.Text(self.header[key], size=self.header_font_size, weight=ft.FontWeight.BOLD)
-                ))
-
-        return columns
 
     def update_table(self):
         """Update the rows after actions like delete or checkbox change."""
@@ -257,3 +229,24 @@ class TableView(ft.Column):
         self.data_table.columns = self.get_table_columns()
         self.data_table.rows = self.get_table_rows()
         self.update()
+
+
+    def get_table_columns(self):
+        """Generate columns for the table."""
+        columns = []
+        for col in self.table_header["columns"]:
+            if col["visible"]:
+                if col["field_type"] == "checkbox" and col["config"].get("checkbox_column"):
+                    # Add a "Select All" checkbox to the header
+                    select_all_checkbox = ft.CupertinoCheckbox(
+                        value=self.select_all,
+                        on_change=self.select_all_changed,
+                        scale=self.checkbox_scale,  # Use the scale passed to the constructor
+                        tristate=True
+                    )
+                    columns.append(ft.DataColumn(select_all_checkbox))
+                else:
+                    columns.append(ft.DataColumn(ft.Text(col["header_name"], tooltip=col["tooltip"], size=self.header_font_size, weight=ft.FontWeight.BOLD)))
+
+
+        return columns
